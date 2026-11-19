@@ -36,10 +36,11 @@ const core = read("core.mjs", "utf8")
   .replaceAll("export ", "");
 const script = `
 (()=>{
+ window.fieldtripStandalone = true;
  const tags=${literal(json("tags"))};
  ${core}
  const routes=${literal(routes)}, sections=${literal(sections)}, features=${literal(json("facilities"))};
- const request=window.fetch.bind(window), trips=new Map();
+ const request=window.fetch.bind(window);
  window.fetch=async (url,init)=>{
  if(typeof url!=='string'||!url.startsWith('/api/'))return request(url,init);
  const {pathname,searchParams:p}=new URL(url,'https://fieldtrip.invalid');
@@ -52,8 +53,16 @@ const script = `
  return reply({total:parts.length,time:${literal(json("source").date)},records:scan(entry.part,km,features).map(item=>({...item,along:item.along+entry.start}))});
  }
  if(pathname.startsWith('/api/trip/')){
- if(init?.method==='POST'){trips.set(pathname,JSON.parse(init.body));return reply({saved:true});}
- return reply(trips.get(pathname)||{});
+ const key='fieldtrip-saved'+pathname;
+ try{
+   if(init?.method==='POST'){
+     localStorage.setItem(key,JSON.stringify(JSON.parse(init.body)));
+     return reply({saved:true});
+   }
+   return reply(JSON.parse(localStorage.getItem(key)||'{}'));
+ }catch{
+   return init?.method==='POST' ? reply({error:'This browser could not store the trip. Enable site storage to save it.'},503) : reply({});
+ }
  }
  if(init?.method==='POST')return reply({error:'Faculty verification requires the full server app.'},503);
  return reply([]);
@@ -75,5 +84,5 @@ const css = asset(".css").replace(
 const safe = (code) => code.replace(/<\/script/gi, "<\\/script");
 writeFileSync(
   process.argv[2] || "Fieldtrip-offline.html",
-  `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Fieldtrip offline map</title><style>${css}</style><body><div style="padding:8px 5%;background:#eff6ed;color:#1c3d30;font:14px system-ui">Offline map · Bundled OpenStreetMap data · Trip edits last until this page closes</div><div id="root"></div><script>${safe(script)}</script><script type="module">${safe(asset(".js"))}</script></body></html>`,
+  `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Fieldtrip offline map</title><style>${css}</style><body><div style="padding:8px 5%;background:#eff6ed;color:#1c3d30;font:14px system-ui">Bundled OpenStreetMap data · Saved itineraries stay in this browser</div><div id="root"></div><script>${safe(script)}</script><script type="module">${safe(asset(".js"))}</script></body></html>`,
 );

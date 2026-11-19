@@ -73,7 +73,7 @@ export function journeyMap(el, select, pick) {
   }
   m.on("moveend zoomend", drawRoads);
   drawRoads();
-  const vehicleLayer = L.layerGroup().addTo(m);
+  let vehicleMarker: L.Marker | undefined;
   const route = L.layerGroup().addTo(m),
     places = L.markerClusterGroup({ chunkedLoading: false }).addTo(m),
     highlights = L.layerGroup().addTo(m);
@@ -138,21 +138,31 @@ export function journeyMap(el, select, pick) {
       sizeObserver?.disconnect();
       m.remove();
     },
-    vehicle(xy) {
-      vehicleLayer.clearLayers();
-      L.marker([xy[1], xy[0]], {
-        icon: L.divIcon({
-          className: "vehicle-pin",
-          html: "↑",
-          iconSize: [28, 28],
-          iconAnchor: [14, 14],
-        }),
-        title: "Simulated vehicle",
-        zIndexOffset: 2000,
-      }).addTo(vehicleLayer);
+    vehicle(xy, heading = 0, moving = false) {
+      const position: [number, number] = [xy[1], xy[0]];
+      if (!vehicleMarker) {
+        vehicleMarker = L.marker(position, {
+          icon: L.divIcon({
+            className: "vehicle-pin",
+            html: '<span class="vehicle-bearing" aria-hidden="true"></span>',
+            iconSize: [28, 28],
+            iconAnchor: [14, 14],
+          }),
+          title: "Simulated vehicle",
+          interactive: false,
+          keyboard: false,
+          zIndexOffset: 2000,
+        }).addTo(m);
+      }
+      const icon = vehicleMarker.getElement();
+      icon?.classList.toggle("is-moving", moving);
+      icon?.style.setProperty("--heading", heading + "deg");
+      vehicleMarker.setLatLng(position);
     },
     route(r) {
       currentRoute = r;
+      vehicleMarker?.remove();
+      vehicleMarker = undefined;
       route.clearLayers();
       highlights.clearLayers();
       if (!r) return;

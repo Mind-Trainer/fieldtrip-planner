@@ -1,3 +1,4 @@
+import { standalone } from "./runtime";
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { journeyMap, colors } from "./map";
@@ -19,6 +20,7 @@ import {
   Layers,
   ArrowUpRight,
   LocateFixed,
+  LoaderCircle,
   X,
   Phone,
   ChevronRight,
@@ -45,7 +47,7 @@ export async function api(path, init?) {
 }
 function App() {
   const [dest, D] = useState(storedJourney.destination || "Tirunelveli"),
-    [mode, M] = useState(storedJourney.mode || "snapshot"),
+    [mode, M] = useState(standalone ? "snapshot" : storedJourney.mode || "snapshot"),
     [routes, R] = useState([]),
     [idx, I] = useState(0),
     [km, K] = useState(storedJourney.km || "3"),
@@ -55,6 +57,7 @@ function App() {
     [detail, S] = useState(null),
     [status, T] = useState(""),
     [busy, B] = useState(false),
+    [searchSection, setSearchSection] = useState(0),
     [tiles, Y] = useState(false),
     [planned, P] = useState([]),
     [custom, U] = useState(storedJourney.custom || { from: "", to: "" });
@@ -104,6 +107,7 @@ function App() {
   function clear() {
     generation.current++;
     B(false);
+    setSearchSection(0);
     F([]);
     S(null);
     Z("");
@@ -170,6 +174,7 @@ function App() {
       success = 0;
     for (let i = 0; i < total; i++) {
       if (seq !== generation.current) return;
+      setSearchSection(i + 1);
       T("Searching section " + (i + 1) + " of " + total + "…");
       try {
         const result = await api(
@@ -545,8 +550,8 @@ function App() {
                     disabled={busy || !(+km > 0 && +km <= 10)}
                     onClick={discover}
                   >
-                    <Search size={17} />
-                    <span>Search entire corridor</span>
+                    {busy && searchSection ? <LoaderCircle className="search-spinner" size={17} /> : <Search size={17} />}
+                    <span>{busy && searchSection ? "Searching corridor…" : "Search entire corridor"}</span>
                   </button>
                 </>
               )}
@@ -557,7 +562,7 @@ function App() {
                     {mode === "snapshot" ? "Offline extract" : "Live services"}
                   </span>
                 </summary>
-                <label>
+                {standalone ? <p>Routes and places come from the bundled OpenStreetMap extract. Live corridor searches require the server app.</p> : <label>
                   Data source
                   <select
                     value={mode}
@@ -569,7 +574,7 @@ function App() {
                     <option value="snapshot">Cached real OSM extract</option>
                     <option value="live">Live OSRM + Overpass</option>
                   </select>
-                </label>
+                </label>}
               </details>
             </section>
             <section className="mapwrap" aria-label="Journey map">
@@ -595,7 +600,15 @@ function App() {
                   </button>
                 </div>
               </div>
-              <div ref={host} className="map"></div>
+              <div className="map-stage">
+                <div ref={host} className="map"></div>
+                {busy && searchSection > 0 && (
+                  <div className="map-search-progress">
+                    <span><LoaderCircle className="search-spinner" size={15} /> Searching section {searchSection} of {route.segments}</span>
+                    <progress max={route.segments} value={searchSection} aria-label="Corridor section being searched" />
+                  </div>
+                )}
+              </div>
               <div className="map-caption">
                 <span>
                   <span className="route-swatch" />
@@ -803,14 +816,15 @@ function App() {
             />
           )}
           <section id="faculty" data-nav-section className="faculty-panel">
-            <FacultyAccount api={api} />
+            {!standalone && <FacultyAccount api={api} />}
             <div className="section-heading">
               <div>
                 <span className="eyebrow">FACULTY WORKSPACE</span>
                 <h2>Review with confidence</h2>
                 <p>
-                  Inspect source details and record the evidence behind each
-                  verification.
+                  {standalone
+                    ? "Inspect the source details of each facility here. Sign in to the server app to record verification evidence."
+                    : "Inspect source details and record the evidence behind each verification."}
                 </p>
               </div>
               <span className="feature-icon">

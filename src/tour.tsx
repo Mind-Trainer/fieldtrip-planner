@@ -1,3 +1,4 @@
+import { standalone } from "./runtime";
 import React, { useEffect, useMemo, useState, useRef } from "react";
 import { distance } from "../core.mjs";
 import { nearby, routeScores } from "../planning.mjs";
@@ -55,33 +56,38 @@ export function GuidedTour({
     });
   }, [route]);
   const length = track.at(-1).total;
-  const point =
-    track.find((p) => p.total >= (length * progress) / 100)?.xy ||
-    route.line.at(-1);
+  const travelled = length * (progress / 100);
+  const next = Math.max(1, track.findIndex((p) => p.total >= travelled));
+  const from = track[next - 1], to = track[next] || from;
+  const fraction = (travelled - from.total) / (to.total - from.total || 1);
+  const point = from.xy.map((value, axis) => value + (to.xy[axis] - value) * fraction);
+  const heading = Math.atan2(
+    (to.xy[0] - from.xy[0]) * Math.cos(point[1] * Math.PI / 180),
+    to.xy[1] - from.xy[1],
+  ) * 180 / Math.PI;
   useEffect(() => {
     if (state !== "Travelling") return;
     const timer = setInterval(
-      () => setProgress((p) => Math.min(100, p + 1)),
-      700,
+      () => setProgress((p) => Math.min(100, (Math.round(p * 5) + 1) / 5)),
+      140,
     );
     return () => clearInterval(timer);
   }, [state]);
   useEffect(() => {
     if (progress === 100) setState("Tour completed");
-    miniMap.current?.vehicle(point);
-    map.current?.vehicle(point);
-  }, [progress]);
+    miniMap.current?.vehicle(point, heading, state === "Travelling");
+    map.current?.vehicle(point, heading, state === "Travelling");
+  }, [progress, state, route]);
   useEffect(() => {
     setProgress(0);
     setState("Ready");
     select(null);
   }, [route.id, rows]);
-  const alternatives = nearby(rows, point, event);
-  const stopsPassed = rows.filter(
-    (r) => planned.includes(r.id) && r.along <= (length * progress) / 100,
-  ).length;
+  const alternatives = state === "Emergency" ? nearby(rows, point, event) : [];
+  const stops = useMemo(() => rows.filter((r) => planned.includes(r.id)), [rows, planned]);
+  const stopsPassed = stops.filter((r) => r.along <= travelled).length;
   return (
-    <section id="tour" data-nav-section className="tour-section">
+    <section id="tour" data-nav-section data-travelling={state === "Travelling"} className="tour-section">
       <div className="section-heading">
         <div>
           <span className="eyebrow">REHEARSE THE JOURNEY</span>
@@ -125,7 +131,7 @@ export function GuidedTour({
           </div>
           <div className="tour-percentage">
             <strong>
-              {progress}
+              {Math.floor(progress)}
               <span>%</span>
             </strong>
             <span>
@@ -134,11 +140,17 @@ export function GuidedTour({
               <small>of {(length / 1000).toFixed(1)} km</small>
             </span>
           </div>
-          <progress
-            max="100"
-            value={progress}
-            aria-label="Journey completion"
-          />
+          <div className="journey-timeline">
+            <progress max="100" value={progress} aria-label="Journey completion" />
+            {stops.map((r) => (
+              <span key={r.id} className="timeline-stop"
+                style={{ left: Math.min(100, 100 * r.along / (length || 1)) + "%" }}
+                title={r.tags.name || r.kind} />
+            ))}
+            <span className="timeline-car" aria-hidden="true" style={{ left: progress + "%" }}>
+              <Car size={16} />
+            </span>
+          </div>
           <div className="tour-stats">
             <span>
               <MapPin size={15} />
@@ -244,7 +256,14 @@ export function GuidedTour({
       </div>
       {state === "Emergency" && (
         <div className="emergency">
-          <h3>Journey paused for assistance</h3>
+          <div className="emergency-heading">
+            <h3>Journey paused for assistance</h3>
+            <button onClick={() => {
+              select(null);
+              setState("Paused");
+              miniMap.current.fit();
+            }}>Exit emergency drill</button>
+          </div>
           <div className="response-steps">
             <span className="done">
               <Check size={13} />
@@ -310,7 +329,7 @@ export function GuidedTour({
                 </p>
               </div>
               <div>
-                <button
+                {!standalone && <button
                   disabled={checking}
                   onClick={async () => {
                     const request = ++driveRequest.current;
@@ -339,7 +358,7 @@ export function GuidedTour({
                   }}
                 >
                   {checking ? "Checking route…" : "Calculate driving route"}
-                </button>
+                </button>}
                 <p aria-live="polite">{driving}</p>
                 <a
                   target="_blank"

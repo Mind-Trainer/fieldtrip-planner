@@ -101,7 +101,7 @@ Offline fonts and the OSM road backdrop are bundled. The backdrop is simplified 
 py scripts/map-roads.py southern-zone-261117.osm.pbf
 ```
 
-The project includes Fieldtrip-offline.html for a server-free demonstration. Open that file in a browser after extracting the ZIP. This file uses real cached data, keeps trip edits in memory for the current page session, and requires the full server app for live requests and faculty verification. Regenerate it after building with `npm.cmd run build:offline`.
+The project includes Fieldtrip-offline.html for a server-free demonstration. Open that file in a browser after extracting the ZIP. This file uses real cached data, stores saved trip edits in this browser, and requires the full server app for live requests and faculty verification. Regenerate it after building with `npm.cmd run build:offline`.
 
 UI previews are in previews/. Browser checks include desktop and 390-pixel mobile layouts, keyboard dismissal of the facility drawer, category filters, an emergency simulation, the Bengaluru corridor and the standalone file.
 
@@ -120,3 +120,9 @@ This is a tested local academic prototype. Multi-user hosted access, email-based
 ## GitHub Pages
 
 The published site serves the bundled interactive corridor demo from docs/index.html. The narrated film is at docs/story.mp4. Live queries, authenticated faculty reviews and server persistence require running the Node app.
+
+## Streamlit Community Cloud
+
+Choose repository `Mind-Trainer/fieldtrip-planner`, branch `main`, and entry point `streamlit_app.py` in Community Cloud. Dependencies are pinned in `requirements.txt`. The Trip planner tab loads the bundled corridor map and the Watch the story tab plays the narrated film. Live API lookups and shared faculty accounts run in the Node edition.
+
+For local use, run `python -m pip install -r requirements.txt` followed by `python -m streamlit run streamlit_app.py`.

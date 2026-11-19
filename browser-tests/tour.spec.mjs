@@ -20,6 +20,13 @@ test("questionnaire, grouped services, verification filter and tour emergency", 
     page.getByText(/No verified or partially verified records match/),
   ).toBeVisible();
   await page.getByLabel("Show only Verified and Partially Verified").uncheck();
+  const marker = page.locator("#tour .vehicle-pin");
+  const position = () => marker.evaluate((el) => el.style.transform);
+  const start = await position();
+  await page.getByRole("button", { name: "Start / resume tour" }).click();
+  await expect.poll(position).not.toBe(start);
+  await page.getByRole("button", { name: "Pause tour" }).click();
+  await expect(marker).not.toHaveClass(/is-moving/);
   await page.getByLabel("Tour progress").fill("50");
   await page
     .getByRole("button", { name: "Trigger emergency", exact: true })

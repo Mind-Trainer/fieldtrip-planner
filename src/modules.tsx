@@ -1,3 +1,4 @@
+import { standalone } from "./runtime";
 import {
   CalendarDays,
   Route,
@@ -41,6 +42,7 @@ function post(body, key = "") {
 export function Review({ api, detail, planned, P, reviews, reload }) {
   const [signedIn, setSignedIn] = useState(false);
   useEffect(() => {
+    if (standalone) return;
     const refresh = () =>
       api("faculty/session")
         .then((s) => setSignedIn(!!s.authenticated))
@@ -61,6 +63,7 @@ export function Review({ api, detail, planned, P, reviews, reload }) {
     H(await api("history?id=" + encodeURIComponent(detail.id)));
   }
   useEffect(() => {
+    if (standalone) return;
     historyLoad().catch((e) => M(e.message));
   }, []);
   const phone = detail.tags.phone || detail.tags["contact:phone"];
@@ -100,7 +103,7 @@ export function Review({ api, detail, planned, P, reviews, reload }) {
           ? "Remove planned stop"
           : "Add planned stop"}
       </button>
-      <details>
+      {!standalone && <details>
         <summary>Faculty verification</summary>
         {!signedIn && (
           <p>
@@ -191,7 +194,7 @@ export function Review({ api, detail, planned, P, reviews, reload }) {
             {r.notes}
           </p>
         ))}
-      </details>
+      </details>}
     </>
   );
 }
@@ -486,7 +489,11 @@ export function Extras({
                 </span>
                 <VerificationBadge status={reviews[r.id]?.status} />{" "}
                 {planned.includes(r.id) ? "Planned stop" : "Unplanned service"}{" "}
-                <button
+                {standalone ? (
+                  <a href={`https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=${point[1]},${point[0]};${r.xy[1]},${r.xy[0]}`} target="_blank" rel="noreferrer">
+                    Open driving directions
+                  </a>
+                ) : <button
                   onClick={async () => {
                     try {
                       const d = await api(
@@ -510,7 +517,7 @@ export function Extras({
                   }}
                 >
                   Check road distance online
-                </button>
+                </button>}
               </div>
             ))}
             <button disabled={!ep} onClick={() => EP(ep - 1)}>

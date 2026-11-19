@@ -1,0 +1,12 @@
+{
+  "routing": {
+    "status": 200,
+    "routes": 1,
+    "distance": 77940.9
+  },
+  "emergencyDriving": {
+    "status": 200,
+    "distance": 3843,
+    "duration": 389.2
+  }
+}

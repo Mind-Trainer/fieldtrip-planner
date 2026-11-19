@@ -1,0 +1,9 @@
+{
+  "date": "2026-11-17",
+  "extract": "https://download.geofabrik.de/asia/india/southern-zone-261117.osm.pbf",
+  "routing": "https://router.project-osrm.org",
+  "routeRetrieved": "2026-11-18",
+  "license": "\u00a9 OpenStreetMap contributors, ODbL 1.0",
+  "facilityLocation": "Nodes use tagged coordinates. Ways and relations use member bounding-box centres.",
+  "offlineRoadBackdrop": "37,172 simplified road sections from the same extract. Display-only geometry."
+}

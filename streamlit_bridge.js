@@ -120,7 +120,35 @@
         ". Use the same planner below to search the entire corridor.");
     }
   }
-  document.addEventListener("DOMContentLoaded", startControls);
+  
+  function mountControls() {
+    if (document.getElementById("fieldtrip-origin")) return;
+    const routeButton = document.querySelector(".load-route");
+    if (!routeButton) return;
+    const panel = document.createElement("div");
+    panel.className = "fieldtrip-live-controls";
+    panel.style.cssText = "padding:14px;margin:10px 0;border:1px solid #cbded5;border-radius:12px;background:#f0f7f3;color:#183d30";
+    panel.innerHTML = [
+      '<strong style="display:block;margin-bottom:8px">Live journey — any starting point and destination</strong>',
+      '<div style="display:flex;flex-wrap:wrap;gap:8px">',
+      '<label style="flex:1 1 170px">From<input id="fieldtrip-origin" placeholder="e.g. Chennai" style="width:100%;padding:8px" value="Nagercoil"></label>',
+      '<label style="flex:1 1 170px">To<input id="fieldtrip-destination" placeholder="e.g. Coimbatore" style="width:100%;padding:8px" value="Tirunelveli"></label>',
+      '</div><button type="button" id="fieldtrip-resolve" style="margin:8px 0">Find locations</button>',
+      '<div style="display:flex;flex-wrap:wrap;gap:8px">',
+      '<label style="flex:1 1 170px">Confirm origin<select id="fieldtrip-origin-matches" style="width:100%" aria-label="Origin match"></select></label>',
+      '<label style="flex:1 1 170px">Confirm destination<select id="fieldtrip-destination-matches" style="width:100%" aria-label="Destination match"></select></label>',
+      '</div><button id="fieldtrip-apply" type="button" disabled style="margin-top:8px">Use these locations in this planner</button>',
+      '<p id="fieldtrip-bridge-status" role="status" style="margin:7px 0;font-size:13px">The original planner and maps remain below.</p>'
+    ].join("");
+    routeButton.parentElement.insertBefore(panel, routeButton);
+    startControls();
+  }
+  const mountObserver = new MutationObserver(mountControls);
+  document.addEventListener("DOMContentLoaded", () => {
+    mountControls();
+    mountObserver.observe(document.body, {childList: true, subtree: true});
+  });
+  
   send("streamlit:componentReady", {apiVersion: 1});
   send("streamlit:setFrameHeight", {height: 1000});
 })();

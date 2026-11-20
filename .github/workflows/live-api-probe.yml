@@ -1,0 +1,46 @@
+name: External live API diagnostic
+on:
+  push:
+    branches:
+      - verify/live-api-connectivity
+  workflow_dispatch:
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Probe actual providers used by Streamlit
+        run: |
+          python - <<'PY'
+          import time, json, traceback
+          from streamlit_live import search_places, route_options, scan_section
+          checks = [
+              ("Open-Meteo geocoding", lambda: search_places("Nagercoil")),
+              ("OSRM live driving route", lambda: route_options([77.43, 8.179], [77.6926, 8.7139])),
+              ("Overpass small corridor", lambda: scan_section([[77.43, 8.179], [77.431, 8.18]], 0, 1)),
+          ]
+          records = []
+          for name, fn in checks:
+              t = time.monotonic()
+              try:
+                  result = fn()
+                  summary = (str(len(result)) + " records/options")
+                  status = "PASS"
+                  if name == "Overpass small corridor" and len(result) == 0:
+                      summary = "Valid empty response (connectivity passed; no mapped records)"
+                  if name == "Open-Meteo geocoding" and len(result) == 0:
+                      status = "FAIL";summary = "No matched places"
+              except Exception as e:
+                  status = "FAIL"
+                  summary = type(e).__name__ + ": " + str(e)
+              rec = {"provider": name, "status": status, "seconds": round(time.monotonic()-t, 1), "result": summary}
+              records.append(rec)
+              print("CHECK " + json.dumps(rec), flush=True)
+          print("PROBE_SUMMARY " + json.dumps(records), flush=True)
+          if any(rec["status"] != "PASS" for rec in records):
+              raise SystemExit(1)
+          PY

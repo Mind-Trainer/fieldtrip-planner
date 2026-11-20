@@ -6,6 +6,7 @@
   let active = null;
   let ready = false;
   let sequence = 0;
+  const rpcSession = Date.now().toString(36) + "-" + Math.random().toString(36).slice(2);
   function send(type, values) {
     window.parent.postMessage({isStreamlitMessage: true, type, ...values}, "*");
   }
@@ -34,7 +35,7 @@
   function apiRequest(path, init = {}) {
     return new Promise((resolve) => {
       pending.push({
-        id: "rpc-" + ++sequence,
+        id: "rpc-" + rpcSession + "-" + ++sequence,
         path, method: init?.method || "GET", body: init?.body || "",
         resolve
       });

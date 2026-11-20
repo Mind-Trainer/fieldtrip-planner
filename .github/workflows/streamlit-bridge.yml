@@ -32,6 +32,12 @@ jobs:
           assert 'const routes=' in page
           print("Original React UI + Streamlit bridge loaded together", len(page), "bytes")
           PY
+      - name: Install browser testing tools
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+      - name: Browser test live route in original Streamlit interface
+        run: npx playwright test --config=playwright.streamlit.config.mjs
       - name: Confirm Streamlit server starts
         run: |
           streamlit run streamlit_app.py --server.headless true --server.port 8501 > /tmp/fieldtrip-streamlit.log 2>&1 &

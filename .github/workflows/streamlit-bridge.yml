@@ -1,0 +1,43 @@
+name: Original Fieldtrip Streamlit bridge checks
+on:
+  push:
+    branches: [fix/streamlit-original-ui-live-bridge]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: python -m pip install -r requirements.txt
+      - run: python -m compileall -q streamlit_live.py streamlit_app.py
+      - run: python -m unittest discover -s tests -p 'test_streamlit_live.py' -v
+      - run: node --check streamlit_bridge.js
+      - name: Check original UI and bridge injection
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import streamlit_app
+          from streamlit_app import component_folder
+          page = (Path(component_folder()) / "index.html").read_text(encoding="utf-8")
+          assert 'window.fieldtripStandalone = false;' in page
+          assert 'window.fieldtripStandalone = true;' not in page
+          assert 'fieldtrip-resolve' in page
+          assert 'streamlit:componentReady' in page
+          assert 'const routes=' in page
+          print("Original React UI + Streamlit bridge loaded together", len(page), "bytes")
+          PY
+      - name: Confirm Streamlit server starts
+        run: |
+          streamlit run streamlit_app.py --server.headless true --server.port 8501 > /tmp/fieldtrip-streamlit.log 2>&1 &
+          for i in $(seq 1 20); do
+            if curl -fsS http://localhost:8501/_stcore/health; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/fieldtrip-streamlit.log
+          exit 1

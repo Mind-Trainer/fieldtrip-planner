@@ -19,7 +19,8 @@ TAGS = json.loads((Path(__file__).parent / "data" / "tags.json").read_text(encod
 CATEGORIES = list(dict.fromkeys(group for values in TAGS.values() for group in values.values()))
 GEOCODE_URL = "https://geocoding-api.open-meteo.com/v1/search"
 OSRM_URL = os.environ.get("OSRM_URL", "https://router.project-osrm.org").rstrip("/")
-OVERPASS_URL = os.environ.get("OVERPASS_URL", "https://overpass-api.de/api/interpreter")
+OVERPASS_URL = os.environ.get("OVERPASS_URL", "https://overpass.private.coffee/api/interpreter")
+FALLBACK_OVERPASS_URL = os.environ.get("FALLBACK_OVERPASS_URL", "https://overpass-api.de/api/interpreter")
 USER_AGENT = "FieldtripPlanner/1.1 (non-commercial university prototype; github.com/Mind-Trainer/fieldtrip-planner)"
 COORDINATES = re.compile(r"^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$")
 
@@ -160,7 +161,7 @@ def overpass_query(box: tuple[float, float, float, float]) -> str:
         'nwr["' + key + '"~"^(' + "|".join(values) + ')$"](' + bbox + ');'
         for key, values in TAGS.items()
     )
-    return "[out:json][timeout:25];(" + selectors + ");out center;"
+    return "[out:json][timeout:22];(" + selectors + ");out center;"
 
 
 def project(line: list[list[float]], point: list[float]) -> tuple[float, float]:
@@ -186,9 +187,21 @@ def scan_section(line: list[list[float]], start_m: float, radius_km: float) -> l
     if not 0 < radius_km <= 10:
         raise ValueError("Search radius must be between 0 and 10 km.")
     box = bounds(line, radius_km)
-    payload = request_json(OVERPASS_URL, {"data": overpass_query(box)}, timeout=32)
-    if not isinstance(payload.get("elements"), list):
-        raise ProviderError("Overpass returned no valid elements list.")
+    payload = None
+    failures = []
+    # Try independently operated public instances, without repeating failures
+    # against the same server; neither instance guarantees uptime.
+    for url in dict.fromkeys((OVERPASS_URL, FALLBACK_OVERPASS_URL)):
+        try:
+            data = request_json(url, {"data": overpass_query(box)}, timeout=27)
+            if not isinstance(data.get("elements"), list):
+                raise ProviderError("Overpass response had no valid elements list.")
+            payload = data
+            break
+        except ProviderError as exc:
+            failures.append(url.split("/")[2] + ": " + str(exc))
+    if payload is None:
+        raise ProviderError("Both OSM services failed. " + " | ".join(failures))
     found = []
     for obj in payload["elements"]:
         tags = obj.get("tags") or {}
